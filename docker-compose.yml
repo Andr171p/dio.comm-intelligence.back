@@ -1,0 +1,3 @@
+include:
+  - path: ./docker/speech.docker-compose.yml
+    env_file: ./.env

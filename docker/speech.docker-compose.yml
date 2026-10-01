@@ -1,0 +1,23 @@
+services:
+  speech:
+    image: onerahmet/openai-whisper-asr-webservice:v1.9.1
+    restart: unless-stopped
+    ports:
+      - "${SPEECH_PORT:-9000}:9000"
+    environment:
+      ASR_ENGINE: whisperx
+      ASR_MODEL: ${WHISPER_MODEL:-small}
+      ASR_DEVICE: cpu
+      ASR_QUANTIZATION: int8
+
+      HF_TOKEN: ${HF_TOKEN:-}
+
+      MODEL_IDLE_TIMEOUT: ${WHISPER_IDLE_TIMEOUT:-0}
+    volumes:
+      - speech_models:/root/.cache
+    shm_size: "1gb"
+    mem_limit: ${SPEECH_MEMORY_LIMIT:-10g}
+
+volumes:
+  speech_models:
+    name: storage-speech-models

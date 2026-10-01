@@ -1,11 +1,15 @@
+from bisect import bisect_right
 from collections.abc import AsyncIterator, Buffer, Sequence
 from contextlib import asynccontextmanager
+from itertools import groupby
+from operator import itemgetter
 from statistics import fmean
 
 import aiohttp
 
 from src.application.recognizer import RecognitionOptions
-from src.domain.communications.vo import TranscriptSegment
+from src.application.transcription import UNKNOWN_SPEAKER
+from src.domain.communications.vo import TranscriptRepresentation, TranscriptSegment
 
 from .config import WhisperConfig
 from .dtos import WhisperResponse, WhisperSegment
@@ -15,12 +19,41 @@ def _convert_seconds_to_ms(seconds: float | None) -> int | None:
     return round(seconds * 1000) if seconds is not None else None
 
 
+def _split_segment(segment: WhisperSegment, boundaries: Sequence[float]) -> list[WhisperSegment]:
+    """Разрезает сегмент по границам (в секундах) по таймкодам слов."""
+
+    intervals: list[int | None] = []
+    for word in segment.words:
+        if word.start is not None and word.end is not None:
+            intervals.append(bisect_right(boundaries, (word.start + word.end) / 2))
+        else:  # слова без таймкодов (например, числа) относим к предыдущему слову
+            intervals.append(intervals[-1] if intervals else None)
+
+    groups = [
+        [word for _, word in group]
+        for _, group in groupby(zip(intervals, segment.words, strict=True), key=itemgetter(0))
+    ]
+    if len(groups) <= 1:
+        return [segment]
+
+    return [
+        WhisperSegment(
+            start=next((word.start for word in words if word.start is not None), segment.start),
+            end=next((word.end for word in reversed(words) if word.end is not None), segment.end),
+            text=" ".join(word.word.strip() for word in words),
+            speaker=segment.speaker,
+            words=words,
+        )
+        for words in groups
+    ]
+
+
 def _build_transcript_segment(segment: WhisperSegment, *, id: int) -> TranscriptSegment:
     """Преобразует распознанный сегмент от Whisper в контракт приложения."""
 
     speaker = (
         segment.speaker or
-        next((word.speaker for word in segment.words if word.speaker is not None), "UNKNOWN")
+        next((word.speaker for word in segment.words if word.speaker is not None), UNKNOWN_SPEAKER)
     )
     scores = [word.score for word in segment.words if word.score is not None]
 
@@ -51,7 +84,9 @@ class WhisperRecognizer:
         self,
         audio: Buffer,
         options: RecognitionOptions | None = None,
-    ) -> Sequence[TranscriptSegment]:
+    ) -> TranscriptRepresentation:
+        options = options or RecognitionOptions(filename="audio")
+
         form_data = aiohttp.FormData()
         form_data.add_field(
             name="audio_file",
@@ -84,9 +119,12 @@ class WhisperRecognizer:
             raw_data = await response.text()
 
         result = WhisperResponse.model_validate_json(raw_data)
-        return tuple(
-            _build_transcript_segment(segment, id=i)
-            for i, segment in enumerate(result.segments)
+        boundaries = sorted(ms / 1000 for ms in options.split_at_ms)
+        segments = [part for segment in result.segments for part in _split_segment(segment, boundaries)]
+
+        return TranscriptRepresentation(
+            segments=tuple(_build_transcript_segment(segment, id=i) for i, segment in enumerate(segments)),
+            language=result.language,
         )
 
     async def close(self) -> None:

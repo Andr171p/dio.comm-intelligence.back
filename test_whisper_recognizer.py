@@ -15,7 +15,7 @@ async def main() -> None:
     recognizer = WhisperRecognizer(config=config)
 
     try:
-        segments = await recognizer.recognize(
+        transcript = await recognizer.recognize(
             audio,
             RecognitionOptions(
                 filename=AUDIO_PATH.name,
@@ -27,7 +27,7 @@ async def main() -> None:
             ),
         )
 
-        for segment in segments:
+        for segment in transcript.segments:
             print(
                 f"[{segment.started_ms}–{segment.ended_ms} ms] "
                 f"{segment.speaker}: {segment.text} "

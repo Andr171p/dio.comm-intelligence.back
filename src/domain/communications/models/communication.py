@@ -45,3 +45,11 @@ class Communication(AggregateRoot):
     period: Period
 
     representations: list[CommunicationRepresentation] = field(default_factory=list)
+
+    def add_representation(self, representation: CommunicationRepresentation) -> None:
+        """Добавляет представление, заменяя существующее того же типа."""
+
+        self.representations = [
+            existing for existing in self.representations if existing.type != representation.type
+        ]
+        self.representations.append(representation)

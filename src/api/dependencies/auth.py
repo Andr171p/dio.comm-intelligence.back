@@ -7,7 +7,7 @@ from ddf.infra.cache import InMemoryCache
 from fastapi import Depends, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from src.application.auth.dtos import Auth, AuthType
+from src.application.auth.dtos import Auth, AuthType, AuthUser
 from src.application.auth.exceptions import PermissionDeniedError, UnauthorizedError
 from src.infra.services.iam import SrvIamClient, SrvIamConfig
 
@@ -41,9 +41,9 @@ async def get_current_auth(
 CurrentAuth = Annotated[Auth, Depends(get_current_auth)]
 
 
-def require_auth_type(required_type: AuthType) -> Callable[[Auth], Auth]:
+def require_auth_type(*required_types: AuthType) -> Callable[[Auth], Auth]:
     def dependency(auth: Annotated[Auth, Depends(get_current_auth)]) -> Auth:
-        if auth.type != required_type:
+        if auth.type not in required_types:
             raise PermissionDeniedError(f"Access denied for auth type: {auth.type.name!r}.")
 
         return auth
@@ -52,4 +52,14 @@ def require_auth_type(required_type: AuthType) -> Callable[[Auth], Auth]:
 
 require_auth_user = Security(require_auth_type(AuthType.USER))
 
-__all__ = ["CurrentAuth", "require_auth_user"]
+# Legacy: сервисных аккаунтов пока нет, service-to-service ходим под админом
+require_auth_service = Security(require_auth_type(AuthType.CLIENT, AuthType.ADMIN))
+
+
+def get_current_user(auth: Annotated[Auth, require_auth_user]) -> AuthUser:
+    return AuthUser.model_validate(auth, from_attributes=True)
+
+
+CurrentUser = Annotated[AuthUser, Depends(get_current_user)]
+
+__all__ = ["CurrentAuth", "CurrentUser", "require_auth_service", "require_auth_user"]

@@ -1,25 +1,54 @@
 from typing import Annotated, Literal
 
+from datetime import datetime
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, HttpUrl, PositiveInt
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    NonNegativeInt,
+    PositiveInt,
+)
 from pydantic.alias_generators import to_camel
 
 from src.domain.communications.models import ExternalRef
-from src.domain.communications.types import CommunicationType
-from src.domain.communications.vo import CallDirection, ConferenceFormat
+from src.domain.communications.types import CommunicationType, RepresentationType
+from src.domain.communications.vo import (
+    CallDirection,
+    CallMeta,
+    ChatRepresentation,
+    ConferenceFormat,
+    ConferenceMeta,
+    Message,
+    TextRepresentation,
+    TranscriptRepresentation,
+    TranscriptSegment,
+)
 
 
-class ParticipantDTO(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+class _BaseDTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel, from_attributes=True)
 
+
+class ParticipantDTO(_BaseDTO):
     display_name: str = Field(min_length=1, description="Отображаемое имя участника")
     user_id: UUID | None = Field(default=None, description="Идентификатор пользователя в системе")
 
 
-class ConferenceMeta(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+class PeriodDTO(_BaseDTO):
+    started_at: AwareDatetime = Field(description="Дата и время начала")
+    ended_at: AwareDatetime = Field(description="Дата и время завершения")
 
+
+# ===========================================================================================================
+# Meta
+# ===========================================================================================================
+
+
+class ConferenceMetaDTO(_BaseDTO):
     type: Literal[CommunicationType.CONFERENCE] = CommunicationType.CONFERENCE
 
     format: ConferenceFormat = Field(default=ConferenceFormat.HYBRID, description="Формат проведения")
@@ -33,10 +62,17 @@ class ConferenceMeta(BaseModel):
         description="Место проведения конференции",
     )
 
+    def to_domain(self) -> ConferenceMeta:
+        return ConferenceMeta(
+            format=self.format,
+            organizer_id=self.organizer_id,
+            agenda=self.agenda,
+            url=str(self.url) if self.url is not None else None,
+            address=self.address,
+        )
 
-class CallMeta(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
+class CallMetaDTO(_BaseDTO):
     type: Literal[CommunicationType.CALL] = CommunicationType.CALL
 
     src: str = Field(description="Номер телефона вызывающего")
@@ -44,17 +80,83 @@ class CallMeta(BaseModel):
     direction: CallDirection = Field(description="Направление звонка (входящий/исходящий)")
     bill_sec: PositiveInt = Field(description="Длительность без гудков")
 
+    def to_domain(self) -> CallMeta:
+        return CallMeta(src=self.src, dst=self.dst, direction=self.direction, bill_sec=self.bill_sec)
 
-CommunicationMeta = Annotated[CallMeta | ConferenceMeta, Field(discriminator="type")]
+
+CommunicationMetaDTO = Annotated[CallMetaDTO | ConferenceMetaDTO, Field(discriminator="type")]
+
+# ===========================================================================================================
+# Representations
+# ===========================================================================================================
 
 
-class CreateCommunicationDTO(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+class TranscriptSegmentDTO(_BaseDTO):
+    id: str = Field(description="Идентификатор сегмента")
+    speaker: str = Field(description="Метка спикера")
+    text: str = Field(description="Распознанный текст")
+    started_ms: NonNegativeInt | None = Field(default=None, description="Начало от начала записи, мс")
+    ended_ms: NonNegativeInt | None = Field(default=None, description="Конец от начала записи, мс")
+    confidence: float = Field(ge=0, le=1, description="Уверенность модели распознавания")
 
-    class _Period(BaseModel):
-        started_at: AwareDatetime = Field(description="Дата и время начала")
-        ended_at: AwareDatetime = Field(description="Дата и время завершения")
 
+class TranscriptRepresentationDTO(_BaseDTO):
+    type: Literal[RepresentationType.TRANSCRIPT] = RepresentationType.TRANSCRIPT
+
+    segments: list[TranscriptSegmentDTO] = Field(description="Распознанные сегменты")
+    language: str | None = Field(default=None, description="Язык записи")
+
+    def to_domain(self) -> TranscriptRepresentation:
+        return TranscriptRepresentation(
+            segments=tuple(TranscriptSegment(**segment.model_dump()) for segment in self.segments),
+            language=self.language,
+        )
+
+
+class MessageDTO(_BaseDTO):
+    id: str = Field(description="Идентификатор сообщения")
+    created_at: AwareDatetime = Field(description="Дата и время отправки")
+    text: str | None = Field(default=None, description="Текст сообщения")
+    attachments: list[UUID] = Field(default_factory=list, description="Вложения")
+    reply_to_id: str | None = Field(default=None, description="Ответ на сообщение")
+    thread_id: str | None = Field(default=None, description="Тред")
+
+
+class ChatRepresentationDTO(_BaseDTO):
+    type: Literal[RepresentationType.CHAT] = RepresentationType.CHAT
+
+    messages: list[MessageDTO] = Field(description="Сообщения чата")
+
+    def to_domain(self) -> ChatRepresentation:
+        return ChatRepresentation(
+            messages=tuple(
+                Message(**message.model_dump(exclude={"attachments"}), attachments=tuple(message.attachments))
+                for message in self.messages
+            ),
+        )
+
+
+class TextRepresentationDTO(_BaseDTO):
+    type: Literal[RepresentationType.TEXT] = RepresentationType.TEXT
+
+    content: str = Field(description="Сплошной текст коммуникации")
+    language: str | None = Field(default=None, description="Язык текста")
+
+    def to_domain(self) -> TextRepresentation:
+        return TextRepresentation(content=self.content, language=self.language)
+
+
+RepresentationDTO = Annotated[
+    TranscriptRepresentationDTO | ChatRepresentationDTO | TextRepresentationDTO,
+    Field(discriminator="type"),
+]
+
+# ===========================================================================================================
+# Commands & responses
+# ===========================================================================================================
+
+
+class CreateCommunicationDTO(_BaseDTO):
     external: ExternalRef | None = Field(default=None, description="Ссылка на внешний источник")
     original_media_id: UUID = Field(description="Идентификатор исходного файла")
     title: str | None = Field(
@@ -63,29 +165,47 @@ class CreateCommunicationDTO(BaseModel):
         max_length=255,
         description="Название/заголовок коммуникации",
     )
-    meta: CommunicationMeta = Field(description="Метаинформация")
+    meta: CommunicationMetaDTO = Field(description="Метаинформация")
     participants: list[ParticipantDTO] = Field(default_factory=list, description="Список участников")
-    period: _Period = Field(description="Временной промежуток")
+    period: PeriodDTO = Field(description="Временной промежуток")
 
 
-class UpdateCommunicationDTO(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
-
+class UpdateCommunicationDTO(_BaseDTO):
     title: str | None = Field(
         default=None,
         min_length=1,
         max_length=255,
         description="Название/заголовок коммуникации",
     )
-    representations: ...
+    representations: list[RepresentationDTO] = Field(
+        default_factory=list,
+        description="Представления коммуникации (заменяют существующие того же типа)",
+    )
 
 
-class CommunicationResponse(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+class CommunicationResponse(_BaseDTO):
+    id: UUID
+    organization_id: UUID
+    original_media_id: UUID | None
+    external: ExternalRef | None
+    title: str | None
+    type: CommunicationType
+    meta: CommunicationMetaDTO
+    participants: list[ParticipantDTO]
+    period: PeriodDTO
+    representations: list[RepresentationDTO]
+    created_at: datetime
+    updated_at: datetime
 
 
 __all__ = [
+    "CallMetaDTO",
+    "ChatRepresentationDTO",
     "CommunicationResponse",
+    "ConferenceMetaDTO",
     "CreateCommunicationDTO",
+    "RepresentationDTO",
+    "TextRepresentationDTO",
+    "TranscriptRepresentationDTO",
     "UpdateCommunicationDTO",
 ]

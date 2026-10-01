@@ -72,3 +72,5 @@ secrets.env
 .env.
 .env
 .env.prod
+# Рабочие данные (аудио транскрибации)
+.data/

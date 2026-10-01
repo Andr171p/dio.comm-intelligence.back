@@ -40,7 +40,7 @@ class WhisperRecognizer:
         self._session: aiohttp.ClientSession | None = None
 
     @asynccontextmanager
-    async def _get_client_session(self) -> AsyncIterator[aiohttp.ClientSession]:
+    async def _get_session(self) -> AsyncIterator[aiohttp.ClientSession]:
         if self._session is None or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=self._config.timeout)
             self._session = aiohttp.ClientSession(base_url=str(self._config.base_url), timeout=timeout)
@@ -77,7 +77,7 @@ class WhisperRecognizer:
             params["max_speakers"] = options.max_speakers
 
         async with (
-            self._get_client_session() as session,
+            self._get_session() as session,
             session.post("/asr", params=params, data=form_data) as response,
         ):
             response.raise_for_status()

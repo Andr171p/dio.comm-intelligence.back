@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, status
 
 from src.application.communications.crud import CommunicationCrudDep
@@ -23,4 +25,5 @@ async def create_communication(
     status_code=status.HTTP_200_OK,
     summary="Получить коммуникацию",
 )
-async def get_communication(): ...
+async def get_communication(communication_id: UUID, crud: CommunicationCrudDep) -> CommunicationResponse:
+    return await crud.read(communication_id)

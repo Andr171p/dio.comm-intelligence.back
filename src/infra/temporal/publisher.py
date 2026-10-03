@@ -13,13 +13,14 @@ from .dtos import PROCESS_COMMUNICATION_WORKFLOW, process_communication_workflow
 
 
 def create_temporal_publisher(client: Client, task_queue: str) -> EventPublisher:
-    """Публикует доменные события как запуски workflow.
+    """
+    Публикует доменные события как запуски workflow.
 
-    Workflow ID детерминирован от сущности, поэтому повторная публикация
-    (ретраи, будущий outbox) не создаёт дублей.
+    Workflow ID детерминирован от сущности,
+    поэтому повторная публикация (retries, outbox) не создаёт дублей.
     """
 
-    async def publish(events: Sequence[Event]) -> None:
+    async def _publish(events: Sequence[Event]) -> None:
         for event in events:
             match event:
                 case CommunicationCreated(communication_id=communication_id):
@@ -33,7 +34,7 @@ def create_temporal_publisher(client: Client, task_queue: str) -> EventPublisher
                             id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
                         )
 
-    return publish
+    return _publish
 
 
 __all__ = ["create_temporal_publisher"]

@@ -18,7 +18,7 @@ class TranscriptSegment:
     text: str
     started_ms: Annotated[int | None, Doc("Начало фрагмента в миллисекундах от начала записи")] = None
     ended_ms: Annotated[int | None, Doc("Конец фрагмента в миллисекундах от начала записи")] = None
-    confidence: Annotated[float, Doc("Уверенность модели распознавания речи")]
+    confidence: Annotated[float | None, Doc("Уверенность модели распознавания речи")] = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -10,7 +10,7 @@ from src.domain.communications.vo import TranscriptSegment
 from src.infra.temporal.helpers import build_audio_chunk_key, download_to_from_s3, heartbeat_periodically
 
 from .definitions import s3_client, speech_recognizer
-from .dtos import TranscribeAudioChunkInput, TranscribedAudioChunkRef
+from .dtos import RecognizeAudioChunkInput, RecognizedAudioChunkRef
 
 _transcript_segments_adepter = TypeAdapter(tuple[TranscriptSegment, ...])
 
@@ -25,34 +25,18 @@ def _normalize_chunk_segments(
     попадает в accepted range текущего чанка.
     """
 
-    result: list[TranscriptSegment] = []
-
-    for segment in segments:
-        started_ms = (
-            chunk.start_ms + segment.started_ms
-            if segment.started_ms is not None
-            else None
+    return tuple(
+        replace(
+            segment,
+            started_ms=(chunk.start_ms + segment.started_ms if segment.started_ms is not None else None),
+            ended_ms=(chunk.start_ms + segment.ended_ms if segment.ended_ms is not None else None),
         )
-
-        ended_ms = (
-            chunk.start_ms + segment.ended_ms
-            if segment.ended_ms is not None
-            else None
-        )
-
-        if started_ms is not None and ended_ms is not None:
-            midpoint = (started_ms + ended_ms) // 2
-
-            if not (chunk.accepted_start_ms <= midpoint < chunk.accepted_end_ms):
-                continue
-
-        result.append(replace(segment, started_ms=started_ms, ended_ms=ended_ms))
-
-    return tuple(result)
+        for segment in segments
+    )
 
 
-@activity.defn(name="transcribe_audio_chunk")
-async def transcribe_audio_chunk(input: TranscribeAudioChunkInput) -> TranscribedAudioChunkRef:
+@activity.defn(name="recognize_audio_chunk")
+async def recognize_audio_chunk(input: RecognizeAudioChunkInput) -> RecognizedAudioChunkRef:
     """Распознаёт один аудиочанк и сохраняет чистый транскрипт."""
 
     chunk = input.chunk
@@ -74,11 +58,11 @@ async def transcribe_audio_chunk(input: TranscribeAudioChunkInput) -> Transcribe
 
         await s3_client.upload(payload, transcript_key, "application/json")
 
-    return TranscribedAudioChunkRef(
-        index=chunk.index,
+    return RecognizedAudioChunkRef(
+        chunk=chunk,
         storage_key=transcript_key,
         segment_count=len(normalized_segments),
     )
 
 
-__all__ = ["transcribe_audio_chunk"]
+__all__ = ["recognize_audio_chunk"]

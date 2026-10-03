@@ -9,15 +9,26 @@ from src.application.communications.crud import (
     to_response,
     update_handler,
 )
+from src.application.repositories import CommunicationRepository
 from src.infra.database.communications import SqlAlchemyCommunicationRepository
 
-from .database import EventDispatcherDep, SessionDep
+from .database import DBSession, Dispatch
 
 
-def get_communication_crud(session: SessionDep, dispatcher: EventDispatcherDep) -> CommunicationCrud:
+def get_communication_repository(db: DBSession) -> CommunicationRepository:
+    return SqlAlchemyCommunicationRepository(db)
+
+
+CommunicationRepositoryDep = Annotated[CommunicationRepository, Depends(get_communication_repository)]
+
+
+def get_communication_crud(
+    repository: CommunicationRepositoryDep,
+    dispatch: Dispatch,
+) -> CommunicationCrud:
     return CommunicationCrud(
-        repository=SqlAlchemyCommunicationRepository(session),
-        dispatcher=dispatcher,
+        repository=repository,
+        dispatcher=dispatch,
         to_response=to_response,
         create_handler=create_handler,
         update_handler=update_handler,

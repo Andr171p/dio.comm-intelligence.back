@@ -110,6 +110,8 @@ def to_response(communication: Communication) -> CommunicationResponse:
             meta: CallMetaDTO | ConferenceMetaDTO = CallMetaDTO.model_validate(communication.meta)
         case ConferenceMeta():
             meta = ConferenceMetaDTO.model_validate(communication.meta)
+        case _:
+            raise ...
 
     return CommunicationResponse(
         id=communication.id,

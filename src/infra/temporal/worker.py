@@ -1,5 +1,3 @@
-"""Temporal воркер обработки коммуникаций: `python -m src.infra.temporal.worker`."""
-
 import asyncio
 import logging
 

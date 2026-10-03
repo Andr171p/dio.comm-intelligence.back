@@ -23,7 +23,7 @@ class SrvCommunicationsClient(SrvBaseClient):
         dto: UpdateCommunicationDTO,
     ) -> CommunicationResponse | None:
         url = f"/api/service/v1/communications/{communication_id}"
-        payload = dto.model_dump(by_alias=True)
+        payload = dto.model_dump(by_alias=True, exclude_unset=True)
 
         async with (
             self._get_token_session() as session,

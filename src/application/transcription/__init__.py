@@ -1,13 +1,4 @@
-from .chunking import AudioChunk, Silence, plan_chunks
-from .merging import UNKNOWN_SPEAKER, ChunkTranscript, merge_transcripts
-from .rendering import render_text
+from .builders import build_transcript_segments
+from .dtos import RecognizedAudioChunk, SpeakerResolutionOptions
 
-__all__ = [
-    "UNKNOWN_SPEAKER",
-    "AudioChunk",
-    "ChunkTranscript",
-    "Silence",
-    "merge_transcripts",
-    "plan_chunks",
-    "render_text",
-]
+__all__ = ["RecognizedAudioChunk", "SpeakerResolutionOptions", "build_transcript_segments"]

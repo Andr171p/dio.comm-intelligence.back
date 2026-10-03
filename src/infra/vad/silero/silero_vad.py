@@ -6,9 +6,9 @@ from subprocess import PIPE, Popen
 
 import numpy as np
 
-from .config import VadConfig
-from .exceptions import VadError
-from .model import SileroOnnxModel, SileroOnnxStream
+from src.infra.vad.silero.config import VadConfig
+from src.infra.vad.exceptions import VadError
+from src.infra.vad.silero.model import SileroOnnxModel, SileroOnnxStream
 
 
 def _read_frame(stream: BinaryIO, size: int) -> bytes | None:

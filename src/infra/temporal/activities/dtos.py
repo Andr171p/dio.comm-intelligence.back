@@ -27,6 +27,12 @@ class PreparedAudioRef:
 
 
 @dataclass(frozen=True, slots=True)
+class AudioPreparationResult:
+    audio: PreparedAudioRef
+    chunks: tuple[AudioChunk, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PrepareAudioChunksInput:
     processing_id: UUID
     source: PreparedAudioRef
@@ -34,7 +40,7 @@ class PrepareAudioChunksInput:
 
 
 @dataclass(frozen=True, slots=True)
-class TranscribeAudioChunkInput:
+class RecognizeAudioChunkInput:
     communication_id: UUID
     processing_id: UUID
     chunk: AudioChunkRef
@@ -42,9 +48,23 @@ class TranscribeAudioChunkInput:
 
 
 @dataclass(frozen=True, slots=True)
-class TranscribedAudioChunkRef:
+class RecognizedAudioChunkRef:
     """Ссылка на результат распознавания одного чанка."""
 
-    index: int
+    chunk: AudioChunkRef
     storage_key: str
     segment_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class BuildTranscriptInput:
+    communication_id: UUID
+    processing_id: UUID
+
+    chunks: tuple[RecognizedAudioChunkRef, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class BuildTranscriptResult:
+    segment_count: int
+    speakers_count: int

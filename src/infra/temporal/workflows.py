@@ -7,7 +7,7 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from src.application.transcription import ChunkTranscript
 
-    from .activities import cleanup_audio, get_communication, prepare_audio, save_transcript, transcribe_chunk
+    from .activities import cleanup_audio, get_communication, prepare_communication, save_transcript, transcribe_chunk
     from .dtos import (
         PROCESS_COMMUNICATION_WORKFLOW,
         PrepareAudioParams,

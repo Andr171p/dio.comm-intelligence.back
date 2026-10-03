@@ -50,6 +50,8 @@ class Communication(AggregateRoot):
         """Добавляет представление, заменяя существующее того же типа."""
 
         self.representations = [
-            existing for existing in self.representations if existing.type != representation.type
+            existing
+            for existing in self.representations
+            if existing.type != representation.type
         ]
         self.representations.append(representation)

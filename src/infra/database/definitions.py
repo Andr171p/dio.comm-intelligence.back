@@ -10,6 +10,6 @@ engine = create_async_engine(
     pool_timeout=postgres_config.pool_timeout,
     echo=postgres_config.echo,
 )
-session_factory = async_sessionmaker(engine, expire_on_commit=False)
+sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 
-__all__ = ["engine", "postgres_config", "session_factory"]
+__all__ = ["engine", "postgres_config", "sessionmaker"]

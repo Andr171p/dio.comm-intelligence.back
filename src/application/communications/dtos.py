@@ -97,7 +97,12 @@ class TranscriptSegmentDTO(_BaseDTO):
     text: str = Field(description="Распознанный текст")
     started_ms: NonNegativeInt | None = Field(default=None, description="Начало от начала записи, мс")
     ended_ms: NonNegativeInt | None = Field(default=None, description="Конец от начала записи, мс")
-    confidence: float = Field(ge=0, le=1, description="Уверенность модели распознавания")
+    confidence: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Уверенность модели распознавания",
+    )
 
 
 class TranscriptRepresentationDTO(_BaseDTO):
@@ -207,5 +212,6 @@ __all__ = [
     "RepresentationDTO",
     "TextRepresentationDTO",
     "TranscriptRepresentationDTO",
+    "TranscriptSegmentDTO",
     "UpdateCommunicationDTO",
 ]

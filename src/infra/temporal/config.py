@@ -33,4 +33,13 @@ class TranscriptionConfig(BaseSettings):
     silence_ms: PositiveInt = Field(default=400, description="Минимальная длина паузы")
 
 
-__all__ = ["TemporalConfig", "TranscriptionConfig"]
+class AudioConfig(BaseSettings):
+    """Настройки для обработки аудио."""
+
+    model_config = SettingsConfigDict(env_prefix="AUDIO_")
+
+    sample_rate: PositiveInt = Field(default=16_000, description="Частота дискретизации")
+    temp_dir: Path | None = Field(default=None, description="Временная директория для сохранения аудио")
+
+
+__all__ = ["AudioConfig", "TemporalConfig", "TranscriptionConfig"]

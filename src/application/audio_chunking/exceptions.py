@@ -1,0 +1,3 @@
+
+class AudioProcessingError(RuntimeError):
+    pass

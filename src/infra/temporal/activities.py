@@ -26,7 +26,7 @@ from src.application.transcription import (
     plan_chunks,
     render_text,
 )
-from src.infra.audio import ffmpeg
+from src.infra.ffmpeg import ffmpeg
 from src.infra.services.iam import SrvIamConfig, SrvIamTokenProvider
 from src.infra.services.media import SrvMediaClient, SrvMediaConfig
 from src.infra.whisper import WhisperConfig, WhisperRecognizer

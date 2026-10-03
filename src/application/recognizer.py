@@ -3,7 +3,7 @@ from typing import Protocol
 from collections.abc import Buffer
 from dataclasses import dataclass
 
-from src.domain.communications.vo import TranscriptRepresentation
+from src.domain.communications.vo import TranscriptSegment
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,7 +17,6 @@ class RecognitionOptions:
     max_speakers: int | None = None
 
     split_at_ms: tuple[int, ...] = ()
-    """Точки (мс от начала аудио), через которые сегменты не должны переходить."""
 
 
 class SpeechRecognizer(Protocol):
@@ -26,4 +25,4 @@ class SpeechRecognizer(Protocol):
         self,
         audio: Buffer,
         options: RecognitionOptions | None = None,
-    ) -> TranscriptRepresentation: ...
+    ) -> tuple[TranscriptSegment, ...]: ...

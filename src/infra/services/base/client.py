@@ -39,6 +39,12 @@ class SrvBaseClient:
 
         yield self._session
 
+    def __auth_endpoint(self, action: str) -> str:
+        """Абсолютный URL эндпоинта IAM (aiohttp не склеивает абсолютные URL с base_url сессии)."""
+
+        auth_url = str(self._config.auth_url or self._config.base_url).rstrip("/")
+        return f"{auth_url}/api/v1/auth/{action}"
+
     async def __authenticate(self) -> _Tokens:
         """Запрашивает пару токенов access + refresh."""
 
@@ -50,7 +56,7 @@ class SrvBaseClient:
 
         async with (
             self.__get_session() as session,
-            session.post("/api/v1/auth/login", data=payload) as response,
+            session.post(self.__auth_endpoint("login"), data=payload) as response,
         ):
             response.raise_for_status()
             data = await response.json()
@@ -65,7 +71,7 @@ class SrvBaseClient:
         try:
             async with (
                 self.__get_session() as session,
-                session.post("/api/v1/auth/refresh", json=payload) as response,
+                session.post(self.__auth_endpoint("refresh"), json=payload) as response,
             ):
                 response.raise_for_status()
                 data = await response.json()

@@ -203,14 +203,52 @@ class CommunicationResponse(_BaseDTO):
     updated_at: datetime
 
 
+# ===========================================================================================================
+# Search (read models для поиска и MCP)
+# ===========================================================================================================
+
+
+class CommunicationCardDTO(_BaseDTO):
+    """Компактная карточка коммуникации без представлений."""
+
+    id: UUID
+    title: str | None
+    type: CommunicationType
+    agenda: str | None = Field(default=None, description="Повестка (для конференций)")
+    participants: list[str] = Field(description="Отображаемые имена участников")
+    started_at: datetime
+    ended_at: datetime
+    has_transcript: bool = Field(description="Готова ли расшифровка")
+
+
+class TranscriptPageDTO(_BaseDTO):
+    """Страница LLM-ready расшифровки (длинные встречи читаются по частям)."""
+
+    communication: CommunicationCardDTO
+    content: str = Field(description="Реплики в формате `[чч:мм:сс] speaker_N: текст`")
+    offset: int = Field(description="Смещение страницы в символах")
+    next_offset: int | None = Field(description="Смещение следующей страницы, null - расшифровка прочитана")
+    total_length: int = Field(description="Полная длина расшифровки в символах")
+
+
+class TranscriptMatchDTO(_BaseDTO):
+    """Коммуникация, в расшифровке которой найден запрос."""
+
+    communication: CommunicationCardDTO
+    fragments: list[str] = Field(description="Реплики с таймкодами, содержащие запрос")
+
+
 __all__ = [
     "CallMetaDTO",
     "ChatRepresentationDTO",
+    "CommunicationCardDTO",
     "CommunicationResponse",
     "ConferenceMetaDTO",
     "CreateCommunicationDTO",
     "RepresentationDTO",
     "TextRepresentationDTO",
+    "TranscriptMatchDTO",
+    "TranscriptPageDTO",
     "TranscriptRepresentationDTO",
     "TranscriptSegmentDTO",
     "UpdateCommunicationDTO",

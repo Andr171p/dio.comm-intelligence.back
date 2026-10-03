@@ -6,25 +6,16 @@ from anyio import Path
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from src.application.audio_chunking import AudioChunkingOptions, plan_audio_chunks
+from src.application.audio_chunking import plan_audio_chunks
 from src.infra.ffmpeg.utils import prepare_audio
 from src.infra.temporal.helpers import download_to_from_media, heartbeat_periodically
 
 from .definitions import audio_config, communications_client, media_client, s3_client
 from .dtos import AudioPreparationResult, CommunicationProcessingInput, PreparedAudioRef
 
-# TODO: Вынести в config
-options = AudioChunkingOptions(
-    target_duration_ms=60_000,
-    max_duration_ms=90_000,
-    min_duration_ms=10_000,
-    boundary_search_ms=10_000,
-    overlap_ms=1_000,
-)
-
 
 @activity.defn(name="prepare_communication")
-async def prepare_communication(input: CommunicationProcessingInput) -> ...:
+async def prepare_communication(input: CommunicationProcessingInput) -> AudioPreparationResult:
     """Подготавливает исходное медиа к дальнейшей обработке.
 
     Activity:
@@ -71,7 +62,7 @@ async def prepare_communication(input: CommunicationProcessingInput) -> ...:
 
         # 2. Extract + normalize audio
         async with heartbeat_periodically(detail="preparing-audio"):
-            meta = await prepare_audio(original_path, prepared_path)
+            meta = await prepare_audio(original_path, prepared_path, sample_rate=audio_config.sample_rate)
 
         # 3. Voice Activity Detection (VAD)
         async with heartbeat_periodically(detail="detecting-voice-activity"):
@@ -84,7 +75,7 @@ async def prepare_communication(input: CommunicationProcessingInput) -> ...:
         chunks = plan_audio_chunks(
             duration_ms=meta.duration_ms,
             boundaries=boundaries,
-            options=...,
+            options=audio_config.chunking_options,
         )
 
         # 5. Durable prepared audio

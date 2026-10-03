@@ -111,7 +111,7 @@ def to_response(communication: Communication) -> CommunicationResponse:
         case ConferenceMeta():
             meta = ConferenceMetaDTO.model_validate(communication.meta)
         case _:
-            raise ...
+            raise TypeError(f"Unsupported communication meta: {type(communication.meta).__name__}")
 
     return CommunicationResponse(
         id=communication.id,

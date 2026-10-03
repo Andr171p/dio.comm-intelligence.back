@@ -1,18 +1,21 @@
+import os
 from bisect import bisect_right
-from collections.abc import AsyncIterator, Buffer, Sequence
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from itertools import groupby
 from operator import itemgetter
 from statistics import fmean
 
 import aiohttp
+from anyio import Path
 
 from src.application.recognizer import RecognitionOptions
-from src.application.transcription import UNKNOWN_SPEAKER
-from src.domain.communications.vo import TranscriptRepresentation, TranscriptSegment
+from src.domain.communications.vo import TranscriptSegment
 
 from .config import WhisperConfig
 from .dtos import WhisperResponse, WhisperSegment
+
+_UNKNOWN_SPEAKER = "UNKNOWN"
 
 
 def _convert_seconds_to_ms(seconds: float | None) -> int | None:
@@ -53,7 +56,7 @@ def _build_transcript_segment(segment: WhisperSegment, *, id: int) -> Transcript
 
     speaker = (
         segment.speaker or
-        next((word.speaker for word in segment.words if word.speaker is not None), UNKNOWN_SPEAKER)
+        next((word.speaker for word in segment.words if word.speaker is not None), _UNKNOWN_SPEAKER)
     )
     scores = [word.score for word in segment.words if word.score is not None]
 
@@ -82,15 +85,16 @@ class WhisperRecognizer:
 
     async def recognize(
         self,
-        audio: Buffer,
+        audio: os.PathLike[str],
         options: RecognitionOptions | None = None,
-    ) -> TranscriptRepresentation:
-        options = options or RecognitionOptions(filename="audio")
+    ) -> tuple[TranscriptSegment, ...]:
+        path = Path(audio)
+        options = options or RecognitionOptions(filename=path.name)
 
         form_data = aiohttp.FormData()
         form_data.add_field(
             name="audio_file",
-            value=bytes(memoryview(audio)),
+            value=await path.read_bytes(),
             filename=options.filename,
             content_type=options.content_type,
         )
@@ -122,10 +126,7 @@ class WhisperRecognizer:
         boundaries = sorted(ms / 1000 for ms in options.split_at_ms)
         segments = [part for segment in result.segments for part in _split_segment(segment, boundaries)]
 
-        return TranscriptRepresentation(
-            segments=tuple(_build_transcript_segment(segment, id=i) for i, segment in enumerate(segments)),
-            language=result.language,
-        )
+        return tuple(_build_transcript_segment(segment, id=i) for i, segment in enumerate(segments))
 
     async def close(self) -> None:
         if self._session is None or self._session.closed:

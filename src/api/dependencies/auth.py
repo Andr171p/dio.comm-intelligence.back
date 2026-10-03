@@ -21,13 +21,9 @@ iam_client = SrvIamClient(iam_config)
 auth_cache = InMemoryCache[Auth]()
 
 
-async def get_current_auth(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-) -> Auth:
-    if credentials is None or not credentials.credentials:
-        raise UnauthorizedError("Missing or invalid credentials.")
+async def authenticate(token: str) -> Auth:
+    """Аутентифицирует access токен DIOS (с кэшем), общая точка для HTTP и MCP."""
 
-    token = credentials.credentials
     cache_key = f"iam:auth:{hashlib.sha256(token.encode()).hexdigest()}"
 
     if (cached_auth := await auth_cache.get(cache_key)) is not None:
@@ -36,6 +32,15 @@ async def get_current_auth(
     auth = await iam_client.authenticate(token)
     await auth_cache.set(cache_key, auth, ttl=_CACHE_TLL)
     return auth
+
+
+async def get_current_auth(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Auth:
+    if credentials is None or not credentials.credentials:
+        raise UnauthorizedError("Missing or invalid credentials.")
+
+    return await authenticate(credentials.credentials)
 
 
 CurrentAuth = Annotated[Auth, Depends(get_current_auth)]
@@ -62,4 +67,4 @@ def get_current_user(auth: Annotated[Auth, require_auth_user]) -> AuthUser:
 
 CurrentUser = Annotated[AuthUser, Depends(get_current_user)]
 
-__all__ = ["CurrentAuth", "CurrentUser", "require_auth_service", "require_auth_user"]
+__all__ = ["CurrentAuth", "CurrentUser", "authenticate", "require_auth_service", "require_auth_user"]

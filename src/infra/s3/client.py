@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from aiobotocore.client import AioBaseClient
+from aiobotocore.config import AioConfig
 from aiobotocore.session import get_session
 from botocore.exceptions import ClientError
 
@@ -32,10 +33,17 @@ class S3Client:
 
     @asynccontextmanager
     async def get_client(self) -> AsyncIterator[AioBaseClient]:
-        async with self.session.create_client(**self._config.model_dump()) as client:
+        async with self.session.create_client(
+            self._config.service_name,
+            endpoint_url=str(self._config.endpoint_url),
+            region_name=self._config.region,
+            aws_access_key_id=self._config.access_key,
+            aws_secret_access_key=self._config.secret_key.get_secret_value(),
+            config=AioConfig(s3={"addressing_style": self._config.addressing_style}),
+        ) as client:
             yield client
 
-    async def upload(self, file: BinaryIO, storage_key: str, content_type: str) -> None:
+    async def upload(self, file: bytes | BinaryIO, storage_key: str, content_type: str) -> None:
         async with self.get_client() as client:
             await client.put_object(
                 Bucket=self._config.bucket,
@@ -53,16 +61,11 @@ class S3Client:
             paginator = client.get_paginator("list_objects_v2")
 
             async for page in paginator.paginate(Bucket=self._config.bucket, Prefix=prefix):
-                if "Contents" not in page:
-                    continue
-
-            objects_to_delete = [{"Key": obj["Key"]} for obj in page["Contents"]]
-
-            if objects_to_delete:
-                await client.delete_objects(
-                    Bucket=self._config.bucket,
-                    Delete={"Objects": objects_to_delete},
-                )
+                if objects_to_delete := [{"Key": obj["Key"]} for obj in page.get("Contents", [])]:
+                    await client.delete_objects(
+                        Bucket=self._config.bucket,
+                        Delete={"Objects": objects_to_delete},
+                    )
 
     async def create_upload_url(
         self,
@@ -122,7 +125,7 @@ class S3Client:
         if chunk_size < DEFAULT_MIN_CHUNK_SIZE:
             raise ValueError("chunk_size must be at least 5 MiB for S3 multipart upload.")
 
-        async with self.get_client as client:
+        async with self.get_client() as client:
 
             response = await client.create_multipart_upload(
                 Bucket=self._config.bucket,

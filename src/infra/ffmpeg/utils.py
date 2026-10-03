@@ -2,7 +2,8 @@ from typing import Any
 
 import asyncio
 import json
-from pathlib import Path
+
+from anyio import Path
 
 from src.application.audio_chunking.exceptions import AudioProcessingError
 
@@ -67,7 +68,7 @@ async def prepare_audio(
 ) -> AudioMeta:
     """Извлекает и нормализует аудиодорожку для дальнейшей обработки."""
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    await destination.parent.mkdir(parents=True, exist_ok=True)
 
     process = await asyncio.create_subprocess_exec(
         ffmpeg_config.path,
@@ -88,14 +89,19 @@ async def prepare_audio(
         "-c:a",
         "flac",
         "-threads",
-        str(sample_rate),
+        str(ffmpeg_config.threads),
         "-y",
         str(destination),
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.PIPE,
     )
 
-    _, stderr = await process.communicate()
+    try:
+        _, stderr = await process.communicate()
+    except asyncio.CancelledError:
+        process.kill()
+        await process.wait()
+        raise
 
     if process.returncode != 0:
         raise AudioProcessingError(f"ffmpeg failed: {stderr.decode(errors='replace')}")

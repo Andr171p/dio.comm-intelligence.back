@@ -5,3 +5,5 @@ include:
     env_file: ./.env
   - path: ./docker/temporal.docker-compose.yml
     env_file: ./.env
+  - path: ./docker/minio.docker-compose.yml
+    env_file: ./.env

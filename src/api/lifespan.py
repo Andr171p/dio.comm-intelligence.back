@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from src.infra.database import engine
 from src.infra.temporal import TemporalConfig, connect, create_temporal_publisher
 
+from .routers.mcp import mcp_server
+
 temporal_config = TemporalConfig()
 
 
@@ -14,10 +16,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     temporal_client = await connect(temporal_config)
     app.state.event_publisher = create_temporal_publisher(temporal_client, temporal_config.task_queue)
 
-    yield
+    async with mcp_server.session_manager.run():
+        yield
 
     await engine.dispose()
 
 
 __all__ = ["lifespan"]
-

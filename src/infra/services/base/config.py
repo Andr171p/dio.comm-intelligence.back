@@ -4,6 +4,10 @@ from pydantic_settings import BaseSettings
 
 class SrvBaseConfig(BaseSettings):
     base_url: HttpUrl = Field(description="Базовый URL сервера без слешей")
+    auth_url: HttpUrl | None = Field(
+        default=None,
+        description="URL IAM DIOS для получения токенов (по умолчанию base_url)",
+    )
     timeout: PositiveInt = Field(default=30, description="Время ожидания результат запроса в секундах")
 
     client_id: str = Field(description="Пока заходим под логином админа")

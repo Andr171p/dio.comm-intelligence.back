@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,4 +13,8 @@ class S3Config(BaseSettings):
     access_key: str
     secret_key: SecretStr
     endpoint_url: HttpUrl = Field(default="http://localhost:9000")
+    region: str = Field(default="us-east-1")
+    addressing_style: Literal["auto", "path", "virtual"] = Field(
+        default="path", description="path-style нужен MinIO, поддерживается и облачными S3",
+    )
     bucket: str

@@ -3,7 +3,14 @@ import logging
 
 from temporalio.worker import Worker
 
-from . import activities
+from .activities import (
+    build_transcript,
+    cleanup_processing_artifacts,
+    prepare_audio_chunks,
+    prepare_communication,
+    recognize_audio_chunk,
+)
+from .activities.definitions import communications_client, media_client, speech_recognizer
 from .client import connect
 from .config import TemporalConfig
 from .workflows import ProcessCommunicationWorkflow
@@ -19,14 +26,20 @@ async def main() -> None:
         client,
         task_queue=temporal_config.task_queue,
         workflows=[ProcessCommunicationWorkflow],
-        activities=activities.ACTIVITIES,
+        activities=[
+            prepare_communication,
+            prepare_audio_chunks,
+            recognize_audio_chunk,
+            build_transcript,
+            cleanup_processing_artifacts,
+        ],
         max_concurrent_activities=temporal_config.max_concurrent_activities,
     )
 
     try:
         await worker.run()
     finally:
-        await activities.close()
+        await asyncio.gather(communications_client.close(), media_client.close(), speech_recognizer.close())
 
 
 if __name__ == "__main__":

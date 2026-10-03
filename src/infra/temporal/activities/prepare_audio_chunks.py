@@ -1,6 +1,7 @@
 from tempfile import TemporaryDirectory
 
 import aiofiles
+from anyio import Path
 from temporalio import activity
 
 from src.application.audio_chunking import AudioChunkRef
@@ -30,8 +31,8 @@ async def prepare_audio_chunks(input: PrepareAudioChunksInput) -> tuple[AudioChu
 
     last_completed_index = _get_last_completed_index()
 
-    with TemporaryDirectory(audio_config.temp_dir) as temp_dir:
-        source = f"{temp_dir}/prepared.flac"
+    with TemporaryDirectory(dir=audio_config.temp_dir, prefix="prepare-audio-chunks-") as temp_dir:
+        source = Path(temp_dir) / "prepared.flac"
         await download_to_from_s3(s3_client, input.source.storage_key, source)
 
         for chunk in input.chunks:

@@ -5,9 +5,16 @@ from uuid import UUID
 
 from ddf.infra.database.sqlalchemy import Base, EntityMixin
 from ddf.infra.database.sqlalchemy.types import DatatimeTz, StrNull, UuidNull
-from sqlalchemy import DateTime, ForeignKey, Index, String, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Computed, DateTime, ForeignKey, Index, String, func
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# Расшифровки пока на русском: конфигурация определяет стемминг и стоп-слова
+FTS_CONFIG = "russian"
+
+_SEARCH_VECTOR_EXPRESSION = (
+    f"CASE WHEN type = 'text' THEN to_tsvector('{FTS_CONFIG}', coalesce(payload ->> 'content', '')) END"
+)
 
 
 class CommunicationOrm(EntityMixin, Base):
@@ -46,4 +53,15 @@ class CommunicationRepresentationOrm(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+    )
+
+    # Полнотекстовый индекс по LLM-ready тексту, вычисляется в БД (в INSERT/UPDATE не участвует)
+    search_vector: Mapped[Any | None] = mapped_column(
+        TSVECTOR,
+        Computed(_SEARCH_VECTOR_EXPRESSION, persisted=True),
+        deferred=True,
+    )
+
+    __table_args__ = (
+        Index("ix_communication_representations_search", "search_vector", postgresql_using="gin"),
     )

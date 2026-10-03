@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from collections.abc import Buffer
+import os
 from dataclasses import dataclass
 
 from src.domain.communications.vo import TranscriptSegment
@@ -23,6 +23,6 @@ class SpeechRecognizer(Protocol):
 
     async def recognize(
         self,
-        audio: Buffer,
+        audio: os.PathLike[str],
         options: RecognitionOptions | None = None,
     ) -> tuple[TranscriptSegment, ...]: ...

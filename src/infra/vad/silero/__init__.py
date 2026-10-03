@@ -1,6 +1,6 @@
 from .silero_vad import SileroVad
 
-__alL__ = ["get_silero_vad"]
+__all__ = ["get_silero_vad"]
 
 _vad: SileroVad | None = None
 

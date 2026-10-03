@@ -1,4 +1,3 @@
-from datetime import timedelta
 from itertools import groupby
 from operator import attrgetter
 from tempfile import TemporaryDirectory
@@ -54,12 +53,12 @@ def _build_text_representation_dto(
     lines: list[str] = []
 
     for speaker, group in groupby(segments, key=attrgetter("speaker")):
-        segments = list(group)
-        if not (text := " ".join(segment.text for segment in segments if segment.text)):
+        turn = list(group)
+        if not (text := " ".join(segment.text for segment in turn if segment.text)):
             continue
 
-        started_ms = segments[0].started_ms
-        timestamp = f"[{timedelta(seconds=started_ms // 1000)!s}] " if started_ms is not None else ""
+        started_ms = turn[0].started_ms
+        timestamp = f"[{_timestamp_to_str(started_ms)}] " if started_ms is not None else ""
         lines.append(f"{timestamp}{speaker}: {text}")
 
     return TextRepresentationDTO(content="\n".join(lines), language=language)
@@ -85,7 +84,7 @@ async def build_transcript(input: BuildTranscriptInput) -> BuildTranscriptResult
             activity.heartbeat("loading-transcripts", ref.chunk.index)
 
         # Build valid speakers transcripts
-        transcript = build_transcript_segments(chunks)
+        transcript = build_transcript_segments(tuple(chunks))
 
         # Persist final representations
         activity.heartbeat("saving-transcript")

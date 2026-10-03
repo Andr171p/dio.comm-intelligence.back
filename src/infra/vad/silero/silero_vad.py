@@ -1,13 +1,13 @@
 from typing import BinaryIO
 
+import os
 from dataclasses import dataclass
-from pathlib import Path
 from subprocess import PIPE, Popen
 
 import numpy as np
 
-from src.infra.vad.silero.config import VadConfig
 from src.infra.vad.exceptions import VadError
+from src.infra.vad.silero.config import VadConfig
 from src.infra.vad.silero.model import SileroOnnxModel, SileroOnnxStream
 
 
@@ -67,6 +67,11 @@ class _VadStateMachine:
     def __init__(self, config: VadConfig) -> None:
         self._config = config
 
+        self._negative_threshold = (
+            config.negative_threshold
+            if config.negative_threshold is not None
+            else max(config.threshold - 0.15, 0.0)
+        )
         self._min_silence_samples = round(config.sample_rate * config.min_silence_duration_ms / 1000)
         self._speech_pad_samples = round(config.sample_rate * config.speech_pad_ms / 1000)
 
@@ -87,7 +92,7 @@ class _VadStateMachine:
             start = max(0, self._current_sample - self._speech_pad_samples - window_samples)
             return _SpeechEvent(start=start)
 
-        if probability < self._config.negative_threshold and self._triggered:
+        if probability < self._negative_threshold and self._triggered:
             if not self._temporary_end:
                 self._temporary_end = self._current_sample
 
@@ -124,7 +129,7 @@ class SileroVad:
         self._config = config
         self._model = SileroOnnxModel(str(config.model_path))
 
-    def detect_boundaries(self, audio: Path,) -> tuple[int, ...]:
+    def detect_boundaries(self, audio: os.PathLike[str]) -> tuple[int, ...]:
         """Находит безопасные точки разбиения аудиозаписи.
 
         Args:
@@ -174,7 +179,7 @@ class SileroVad:
             if process.stderr is not None:
                 process.stderr.close()
 
-    def _open_ffmpeg(self, audio: Path) -> Popen[bytes]:
+    def _open_ffmpeg(self, audio: os.PathLike[str]) -> Popen[bytes]:
         """Открывает FFmpeg как поток mono PCM 16 kHz."""
         return Popen(
             [
